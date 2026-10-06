@@ -51,3 +51,23 @@ La variable `MYSQL_ROOT_PASSWORD` permite proporcionar la contraseña que MySQL 
 En este `docker-compose.yml`, la contraseña se define mediante una variable de entorno para que Docker pueda entregársela al contenedor al momento de iniciarlo, sin tener que modificar la imagen de MySQL.
 
 ## Parte 3 - Visualización y topología
+
+### 1. Servicio Grafana
+
+Grafana es el servicio encargado de mostrar de forma gráfica los datos que recolecta Prometheus. Se ejecuta dentro de un contenedor Docker a partir de una imagen de Grafana subida por la cuenta oficial creadora.
+
+La configuración del servicio en `docker-compose.yml` es:
+
+```yaml
+grafana:
+  image: grafana/grafana:13.2.2
+  restart: always
+  ports:
+    - ¨3000:3000¨
+  environment:
+    - GF_SECURITY_ADMIN_PASSWORD=admin
+  depends_on:
+    - prometheus
+  networks:
+    - mynetwork
+
