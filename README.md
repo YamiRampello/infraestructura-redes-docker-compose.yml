@@ -70,4 +70,21 @@ grafana:
     - prometheus
   networks:
     - mynetwork
+```
+
+#### ¿Qué hace cada elemento?
+
+| Elemento | Explicación |
+|---|---|
+| `grafana:` | Es el nombre que identifica al servicio dentro del archivo `docker-compose.yml`. |
+| `image: grafana/grafana:13.2.2` | Indica que Docker debe utilizar la imagen de Grafana como base para crear el contenedor donde se ejecutará el servidor Grafana. `13.2.2` indica la versión marcada que se tiene que utilizar.De esta forma se garantiza la inmutabilidad y estabilidad del entorno |
+| `restart: always` | Indica que Docker debe intentar reiniciar automáticamente el contenedor si este se detiene. |
+| `ports: ¨3000:3000¨` | Establece un mapeo de puertos entre el host y el contenedor. Define que cualquier tráfico que ingrese al puerto 3000 del host será redirigido automáticamente al puerto 3000 interno donde escucha Grafana. |
+
+| `environment:` | Permite definir variables de entorno que serán utilizadas por el contenedor. |
+| `GF_SECURITY_ADMIN_PASSWORD: admin` | Establece la contraseña del usuario `admin` de Grafana mediante una variable de entorno. |
+| `depends_on: prometheus` | Establece el orden de inicio de los servicios. Le indica a Docker que debe arrancar el contenedor Prometheus antes de iniciar el de Grafana, asegurando que la base de datos de métricas estén disponibles en la red desde el principio. |
+
+| `networks:` | Indica a qué red o redes de Docker pertenece el servicio. |
+| `- mynetwork` | Conecta el contenedor de Grafana a la red `mynetwork`, permitiendo que se comunique con los demás servicios conectados a esa red. |
 
