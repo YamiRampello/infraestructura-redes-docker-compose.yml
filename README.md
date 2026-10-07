@@ -123,6 +123,10 @@ indica que `dbexporter` depende del servicio `mysql`. Esto establece el orden de
 
 Esta relación tiene sentido porque `dbexporter` necesita conectarse a MySQL para obtener sus métricas.
 
+
+## Parte 2
+
+
 ## Parte 3 - Visualización y topología
 
 ### 1. Servicio Grafana
