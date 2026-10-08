@@ -229,3 +229,18 @@ grafana:
 | `networks:` | Indica a qué red o redes de Docker pertenece el servicio. |
 | `- mynetwork` | Conecta el contenedor de Grafana a la red `mynetwork`, permitiendo que se comunique con los demás servicios conectados a esa red. |
 
+### Grafana y la red mynetwork: por qué Grafana depende de Prometheus, y cómo la red común permite resolver por nombre entre los cinco servicios
+
+#### 1. Relación de dependencia entre Grafana y Prometheus
+En este stack de monitoreo, **Grafana depende estrictamente de Prometheus porque actúa únicamente como la capa de interfaz y visualización**, lo que significa que no recolecta, genera ni almacena ningún tipo de métrica por sí mismo. 
+
+Su función es conectarse a Prometheus (que funciona como la base de datos y motor de recolección) para realizar consultas utilizando el lenguaje PromQL. Sin Prometheus recopilando el estado de los contenedores (vía cAdvisor), de la base de datos (vía dbexporter) y de la app CRUD, Grafana no tendría datos que transformar en gráficos o paneles de control. En el archivo `docker-compose.yml`, la directiva `depends_on: - prometheus` refleja esta jerarquía estructural, asegurando que Docker inicie primero el contenedor del motor de métricas antes de levantar la interfaz de usuario.
+
+#### 2. Resolución por nombre en la red común `mynetwork`
+Al declarar la red virtualizada `mynetwork` y conectar los cinco servicios a ella (`mysql`, `dbexporter`, `cadvisor`, `prometheus` y `grafana`), Docker Compose habilita de forma automática un **servidor DNS interno integrado**. 
+
+Este mecanismo resuelve la comunicación del stack de la siguiente manera:
+* **Registro de alias:** Docker asocia el nombre de cada servicio definido en el archivo YAML con la dirección IP privada y dinámica que le asigna a su respectivo contenedor dentro de la red aislada.
+* **Resolución automática:** Los servicios no necesitan conocer las direcciones IP de los demás para comunicarse. Cuando Grafana necesita conectarse a su fuente de datos, utiliza la URL `http://prometheus:9090`. El DNS interno de Docker intercepta ese nombre ("prometheus") y lo traduce instantáneamente a la IP interna correcta del contenedor de métricas. Lo mismo ocurre cuando Prometheus busca el exportador de la base de datos usando el nombre `dbexporter`.
+
+Esta topología permite un entorno seguro y aislado, donde los servicios dialogan entre sí por nombre de forma transparente sin necesidad de exponer todos sus puertos hacia la máquina host.
