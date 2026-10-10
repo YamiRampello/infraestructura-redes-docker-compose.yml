@@ -1,5 +1,15 @@
 # Explicación de docker-compose.yml — Stack de monitoreo
 
+## Introducción
+
+En este trabajo se analiza la configuración de un stack de monitoreo implementado mediante Docker Compose. El objetivo es comprender cómo se organizan y se comunican los distintos servicios que lo componen, y qué función cumplen las principales directivas utilizadas en los archivos de configuración.
+
+El stack está integrado por `mysql`, que proporciona la base de datos; `dbexporter`, que obtiene y expone sus métricas; `cadvisor`, que permite monitorear los recursos utilizados por los contenedores; `prometheus`, que recolecta y almacena las métricas; y `grafana`, que permite visualizarlas mediante gráficos y paneles.
+
+Para explicar su funcionamiento, dividimos el análisis en cuatro partes. Primero, abordamos la persistencia de datos y la configuración de MySQL y `dbexporter`. Luego, analizamos la recolección de métricas mediante cAdvisor y Prometheus. En tercer lugar, explicamos la visualización de los datos con Grafana y la comunicación entre los servicios a través de la red `mynetwork`. Por último, estudiamos el archivo `prometheus.yml`, que define cómo Prometheus identifica y consulta los distintos objetivos de recolección de métricas (*targets*).
+
+A lo largo del trabajo, explicamos tanto la función de cada componente como la sintaxis de las configuraciones utilizadas, con el propósito de comprender cómo se integra el stack y cómo interactúan sus servicios.
+
 ## Parte 1 — Persistencia de datos
 
 ### 1. Servicio MySQL
@@ -48,7 +58,7 @@ Imagen mysql:latest
 
 La variable `MYSQL_ROOT_PASSWORD` permite proporcionar la contraseña que MySQL necesita durante su configuración inicial.
 
-En este `docker-compose.yml`, la contraseña se define mediante una variable de entorno para que Docker pueda entregársela al contenedor al momento de iniciarlo, sin tener que modificar la imagen de MySQL.
+Definir la contraseña mediante una variable de entorno facilita la configuración del servicio y permite cambiar el valor sin modificar el resto de la configuración. Sin embargo, esto no garantiza que la contraseña sea secreta, ya que puede quedar expuesta en el archivo docker-compose.yml o en la configuración del contenedor. Para entornos reales, es preferible utilizar mecanismos específicos para gestionar secretos.
 
 ### 2. Servicio dbexporter
 
@@ -108,7 +118,7 @@ El parámetro:
 
 le indica al exporter dónde encontrar ese archivo.
 
-De esta manera, `dbexporter` puede leer la configuración necesaria sin modificar el archivo original.
+El modo de solo lectura (`:ro`) se utiliza como medida de protección para evitar que el contenedor modifique el archivo de configuración original. De esta manera, `dbexporter` puede consultar los datos necesarios para conectarse a MySQL sin alterar el archivo `my.cnf` del host.
 
 #### Relación entre `dbexporter` y MySQL
 
