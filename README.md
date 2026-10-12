@@ -254,3 +254,48 @@ Este mecanismo resuelve la comunicación del stack de la siguiente manera:
 * **Resolución automática:** Los servicios no necesitan conocer las direcciones IP de los demás para comunicarse. Cuando Grafana necesita conectarse a su fuente de datos, utiliza la URL `http://prometheus:9090`. El DNS interno de Docker intercepta ese nombre ("prometheus") y lo traduce instantáneamente a la IP interna correcta del contenedor de métricas. Lo mismo ocurre cuando Prometheus busca el exportador de la base de datos usando el nombre `dbexporter`.
 
 Esta topología permite un entorno seguro y aislado, donde los servicios dialogan entre sí por nombre de forma transparente sin necesidad de exponer todos sus puertos hacia la máquina host.
+
+## Parte 4 — Configuración de Prometheus (`prometheus.yml`)
+
+El archivo `prometheus.yml` es el encargado de definir el comportamiento del motor de monitoreo. Establece la frecuencia de recolección de datos y los objetivos específicos a los que debe consultar en el entorno.
+
+La configuración del archivo es:
+
+```yaml
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  - job_name: 'mysql'
+    static_configs:
+      - targets: ['dbexporter:9104']
+
+  - job_name: 'crud-app'
+    static_configs:
+      - targets: ['host.docker.internal:8888']
+```
+
+#### ¿Qué hace cada elemento?
+
+| Elemento | Explicación |
+|---|---|
+| `global:` | Permite definir directivas de configuración generales que se aplicarán por defecto a todas las tareas de monitoreo si no se especifica lo contrario. |
+| `scrape_interval: 5s` | Establece el intervalo de tiempo en el que Prometheus realiza la recolección de métricas. Define que cada 5 segundos se consultará el estado de todos los objetivos configurados. |
+| `scrape_configs:` | Estructura la lista de tareas de recolección, organizando bajo bloques individuales cada uno de los sistemas o aplicaciones que se van a monitorear. |
+| `job_name: 'prometheus'` | Prometheus se monitorea a sí mismo de forma nativa. Al apuntar a su propia dirección local y puerto, recolecta métricas de su propio rendimiento interno (uso de memoria, consultas procesadas, tiempos de almacenamiento, etc). |
+| `targets: ['localhost:9090']` | Define el endpoint interno de destino para el primer trabajo, apuntando a su propio puerto local. |
+| `job_name: 'cadvisor'` | Asigna un nombre identificatorio a la tarea encargada de registrar el consumo de hardware de los contenedores Docker en ejecución. |
+| `targets: ['cadvisor:8080']` | Define la dirección de destino para cAdvisor, aprovechando el puerto 8080 dentro de la red del escenario. |
+| `job_name: 'mysql'` | Asigna un nombre identificatorio a la tarea dedicada a capturar las estadísticas de la base de datos MySQL. |
+| `targets: ['dbexporter:9104']` | Prometheus no puede extraer estadísticas directamente desde el servidor MySQL porque no entiende el lenguaje nativo de las bases de datos. Por este motivo, se utiliza `dbexporter` como un intermediario o traductor. Este componente se encarga de consultar los datos internos de MySQL, transformarlos al formato estándar de métricas y dejarlos listos en el puerto 9104 para que Prometheus los pueda recolectar.
+| `job_name: 'crud-app'` | Asigna un nombre identificatorio a la tarea orientada a medir el comportamiento y las peticiones de la aplicación web Flask. |
+| `targets: ['host.docker.internal:8888']` | Realiza el scrape a la aplicación desarrollada en Flask. Como la app de Python corre directamente sobre el sistema operativo del host (no en un contenedor) en el puerto `8888`, se utiliza la dirección especial `host.docker.internal` para que el contenedor de Prometheus pueda "salir" hacia la máquina real y encontrar el endpoint `/metrics`.
+|
