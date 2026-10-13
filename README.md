@@ -298,4 +298,46 @@ scrape_configs:
 | `targets: ['dbexporter:9104']` | Prometheus no puede extraer estadísticas directamente desde el servidor MySQL porque no entiende el lenguaje nativo de las bases de datos. Por este motivo, se utiliza `dbexporter` como un intermediario o traductor. Este componente se encarga de consultar los datos internos de MySQL, transformarlos al formato estándar de métricas y dejarlos listos en el puerto 9104 para que Prometheus los pueda recolectar.
 | `job_name: 'crud-app'` | Asigna un nombre identificatorio a la tarea orientada a medir el comportamiento y las peticiones de la aplicación web Flask. |
 | `targets: ['host.docker.internal:8888']` | Realiza el scrape a la aplicación desarrollada en Flask. Como la app de Python corre directamente sobre el sistema operativo del host (no en un contenedor) en el puerto `8888`, se utiliza la dirección especial `host.docker.internal` para que el contenedor de Prometheus pueda "salir" hacia la máquina real y encontrar el endpoint `/metrics`.
-|
+
+
+## Conclusión
+
+Al analizar las cuatro partes, comprendimos que el `docker-compose.yml` no define
+cinco contenedores independientes, sino una cadena en la que cada servicio cumple
+un rol dentro del flujo de datos. MySQL genera el estado que queremos observar;
+`dbexporter` y cAdvisor lo transforman en métricas; Prometheus las recolecta y
+almacena según lo definido en `prometheus.yml`; y Grafana las presenta en forma de
+gráficos y paneles. Si alguno de estos eslabones deja de funcionar, los servicios
+que dependen de él se quedan sin datos.
+
+A lo largo del trabajo identificamos algunas decisiones de diseño que se repiten:
+
+- **Mínimo privilegio:** los archivos y directorios que solo necesitan leerse se
+  montan con `:ro`, como `my.cnf` en `dbexporter` y las rutas del host en cAdvisor.
+- **Mínima exposición:** de los cinco servicios, solo Prometheus (9090) y Grafana
+  (3000) publican puertos hacia el host, porque son los que accedemos desde el
+  navegador. El resto se comunica únicamente a través de `mynetwork`.
+- **Configuración fuera de la imagen:** las contraseñas de MySQL y Grafana se
+  definen mediante variables de entorno, y los archivos `my.cnf` y `prometheus.yml`
+  se montan desde el host, de modo que podemos cambiar el comportamiento de cada
+  servicio sin modificar sus imágenes.
+- **Orden de inicio con `depends_on`:** aparece en `dbexporter` y en `grafana`, y en
+  ambos casos establece el orden en que arrancan los servicios, pero no garantiza
+  que el servicio del que dependen ya esté listo para recibir conexiones.
+
+Encontramos que el archivo `prometheus.yml` funciona como el punto donde se
+integran todas las partes. Sus *targets* reflejan las dos formas de comunicación
+del stack: los servicios conectados a `mynetwork` se consultan por su nombre
+(`cadvisor:8080`, `dbexporter:9104`) gracias al DNS interno de Docker, mientras
+que la aplicación Flask, que se ejecuta directamente en el host y fuera de la red,
+solo puede alcanzarse mediante `host.docker.internal:8888`, nombre que existe
+dentro del contenedor de Prometheus gracias a la directiva `extra_hosts`. Este
+contraste fue lo que mejor nos permitió entender la función de la red común:
+cuando un componente queda fuera de ella, es necesario configurar explícitamente
+cómo encontrarlo.
+
+En cuanto a la sintaxis, observamos que tanto `docker-compose.yml` como
+`prometheus.yml` se construyen con los mismos elementos de YAML: mapas
+(`clave: valor`), listas (`- elemento`) e indentación con espacios para expresar
+qué elementos están contenidos dentro de otros. Comprender estas tres estructuras
+nos permitió leer e interpretar cualquier sección de ambos archivos.
